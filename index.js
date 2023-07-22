@@ -174,7 +174,7 @@ app.post('/updateorders', upload.single('image'), async (req, res) => {
 
 
         // Split image into as many as there is users
-        var comm = `rm -rf maps/test/* && ./image_splitter maps/${appData.currentMap} ${activeConnections.length}`;
+        var comm = `rm -rf maps/test/* && ./image_splitter_threaded maps/${appData.currentMap} ${activeConnections.length}`;
         exec(comm, (error, stdout, stderr) => {
             if (error) {
                 console.error(`Error executing the image splitter command: ${error.message}`);
@@ -200,7 +200,7 @@ wsServer.on('connection', (socket, req) => {
     activeConnections.push(socket._id);
 
 
-    var comm = `rm -rf maps/test/* && ./image_splitter maps/${appData.currentMap} ${activeConnections.length}`;
+    var comm = `rm -rf maps/test/* && ./image_splitter_threaded maps/${appData.currentMap} ${activeConnections.length}`;
     exec(comm, (error, stdout, stderr) => {
         if (error) {
             console.error(`Error executing the image splitter command: ${error.message}`);
@@ -252,7 +252,7 @@ wsServer.on('connection', (socket, req) => {
                 break;
 
             case 'getmap':
-                var comm = `rm -rf maps/test/* && ./image_splitter maps/${appData.currentMap} ${activeConnections.length}`;
+                var comm = `rm -rf maps/test/* && ./image_splitter_threaded maps/${appData.currentMap} ${activeConnections.length}`;
                 exec(comm, (error, stdout, stderr) => {
                     if (error) {
                         console.error(`Error executing the image splitter command: ${error.message}`);
