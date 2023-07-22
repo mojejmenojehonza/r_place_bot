@@ -1,5 +1,5 @@
 # r_place_bot
-Automatic placer for r/slash.
+Automatic placer for r/place.
 
 # Installation
 ```
