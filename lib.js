@@ -1,17 +1,17 @@
 const fs = require('fs');
 
 module.exports = {
-    // Log.
+    // Log
     log: (msg) => {
         console.log(`[${new Date().toLocaleString()}] ${msg}`);
     },
 
-    // Error.
+    // Error
     error: (err) => {
         console.error(`[${new Date().toLocaleString()}] ${err}`);
     },
 
-    // Vezme historii map a vybere z nich 5 nejnovějších
+    // Takes the history of the maps and selects the 5 most recent ones
     getRecentMaps: (complete) => {
         let recent = JSON.parse(JSON.stringify(complete));
         recent = recent.sort((a, b) => { return b.date - a.date; });
@@ -20,17 +20,17 @@ module.exports = {
         return recent.slice(0, 5);
     },
 
-    // Přepočítá RGB na HEX
+    // Converts RGB to HEX
     rgbToHex: (r, g, b) => {
         return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase();
     },
 
-    // Kontroluje špatný placepixel
+    // Checks incorrect pixel placement
     checkIncorrectPlace: (x, y, color) => {
         return (x === undefined || y === undefined || color === undefined && x < 0 || x > 1999 || y < 0 || y > 999 || color < 0 || color > 32);
     },
 
-    // Ukládá appData do data.json
+    // Saves appData to data.json
     saveAppdata: (appData) => {
         try {
             fs.writeFileSync(`${__dirname}/data.json`, JSON.stringify(appData));
@@ -40,14 +40,14 @@ module.exports = {
         }
     },
 
-    // Handluje aktualizaci příkazů
+    // Handles instructions update
     handleUpdateError: (req, res, err) => {
         res.send(err);
         fs.unlinkSync(req.file.path);
         module.exports.error(`UpdateOrders failed: ${err}`);
     },
 
-    // Kouká jestli je věc alfanumerická
+    // Check for alphanumeric
     isAlphaNumeric(str) {
         let code, i, len;
     
@@ -63,7 +63,7 @@ module.exports = {
         return true;
     },
 
-    // Kontroluje jestli je v pořádku brand
+    // Validates Brand
     checkInvalidBrand(brand) {
         return (brand === undefined || brand.length < 1 || brand.length > 32 || !module.exports.isAlphaNumeric(brand));
     }

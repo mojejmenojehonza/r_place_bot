@@ -12,6 +12,8 @@ const safeCompare = require('safe-compare');
 const multer = require('multer');
 const upload = multer({ dest: `${__dirname}/uploads/` });
 
+const { exec } = require('child_process');
+
 const PORT = process.env.PORT || 3987;
 const COLOR_MAPPINGS = {
     '#6D001A': 0,
@@ -159,6 +161,7 @@ app.post('/updateorders', upload.single('image'), async (req, res) => {
         appData.orderLength = orders.length;
 
         appData.currentMap = pngFile;
+
         appData.mapHistory.push({
             date: Date.now(),
             file: pngFile,
@@ -169,18 +172,47 @@ app.post('/updateorders', upload.single('image'), async (req, res) => {
 
         recentHistory = lib.getRecentMaps(appData.mapHistory);
 
-        wsServer.clients.forEach((client) => {
-            client.send(JSON.stringify({ type: 'map', data: appData.currentMap, reason }));
-            client.send(JSON.stringify({ type: 'orders', data: appData.currentOrders, reason }));
+
+        // Split image into as many as there is users
+        var comm = `rm -rf maps/test/* && ./image_splitter maps/${appData.currentMap} ${activeConnections.length}`;
+        exec(comm, (error, stdout, stderr) => {
+            if (error) {
+                console.error(`Error executing the image splitter command: ${error.message}`);
+                return;
+            }
+            wsServer.clients.forEach((client) => {
+                var personalizedMap = `test/${activeConnections.indexOf(client._id)}.png`;
+                client.send(JSON.stringify({ type: 'map', data: personalizedMap, reason: null }));
+                client.send(JSON.stringify({ type: 'orders', data: appData.currentOrders, reason }));
+            })
         });
+
 
         lib.saveAppdata(appData);
         res.redirect('/');
     });
 });
 
+
+const activeConnections = [];
 wsServer.on('connection', (socket, req) => {
     socket._id = randomUUID().slice(0, 8);
+    activeConnections.push(socket._id);
+
+
+    var comm = `rm -rf maps/test/* && ./image_splitter maps/${appData.currentMap} ${activeConnections.length}`;
+    exec(comm, (error, stdout, stderr) => {
+        if (error) {
+            console.error(`Error executing the image splitter command: ${error.message}`);
+            return;
+        }
+        wsServer.clients.forEach((client) => {
+            var personalizedMap = `test/${activeConnections.indexOf(client._id)}.png`;
+            client.send(JSON.stringify({ type: 'map', data: personalizedMap, reason: null }));
+        })
+    });
+
+
     socket.brand = 'unknown';
     socket.lastPlaced = 0;
 
@@ -191,6 +223,12 @@ wsServer.on('connection', (socket, req) => {
 
     socket.on('close', () => {
         lib.log(`[-] Client ${socket._id} disconnected`);
+
+        // Remove the connection UUID from the activeConnections array
+        const index = activeConnections.indexOf(socket._id);
+        if (index !== -1) {
+            activeConnections.splice(index, 1);
+        }
     });
 
     socket.on('message', (message) => {
@@ -212,12 +250,23 @@ wsServer.on('connection', (socket, req) => {
                 if (lib.checkInvalidBrand(brand)) return;
                 socket.brand = data.brand;
                 break;
+
             case 'getmap':
-                socket.send(JSON.stringify({ type: 'map', data: appData.currentMap, reason: null }));
+                var comm = `rm -rf maps/test/* && ./image_splitter maps/${appData.currentMap} ${activeConnections.length}`;
+                exec(comm, (error, stdout, stderr) => {
+                    if (error) {
+                        console.error(`Error executing the image splitter command: ${error.message}`);
+                        return;
+                    }
+                    var personalizedMap = `test/${activeConnections.indexOf(socket._id)}.png`;
+                    socket.send(JSON.stringify({ type: 'map', data: personalizedMap, reason: null }));
+                });
                 break;
+
             case 'getorders':
                 socket.send(JSON.stringify({ type: 'orders', data: appData.currentOrders, reason: null }));
                 break;
+
             case 'placepixel':
                 if (Date.now() - socket.lastPlaced <= (20 * 1000)) break;
 
@@ -228,9 +277,11 @@ wsServer.on('connection', (socket, req) => {
                 socket.lastPlaced = Date.now();
                 appData.pixelsPlaced++;
                 break;
+
             case 'ping':
                 socket.send(JSON.stringify({ type: 'pong' }));
                 break;
+
             default:
                 socket.send(JSON.stringify({ type: "error", data: "Unknown command!" }));
                 break;
